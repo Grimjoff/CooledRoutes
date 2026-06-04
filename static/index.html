@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ThermoRoute - Micro-Climate Navigation</title>
+    <!-- Google Fonts: Outfit -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome for Icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <!-- MapLibre GL JS -->
+    <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
+    <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet" />
+    <!-- Custom Stylesheet -->
+    <link href="/static/style.css" rel="stylesheet" />
+</head>
+<body>
+    <div id="app-container">
+        <!-- Sidebar Panel -->
+        <aside id="control-sidebar">
+            <header class="brand-header">
+                <div class="logo-wrapper">
+                    <i class="fa-solid fa-wind logo-icon"></i>
+                    <h1>ThermoRoute</h1>
+                </div>
+                <p class="subtitle">Micro-Climate Routing & Navigation</p>
+            </header>
+
+            <!-- Navigation Mode Selector -->
+            <section class="control-group">
+                <label class="group-label">Routing Controls</label>
+                <div class="location-inputs">
+                    <div class="input-row">
+                        <i class="fa-solid fa-circle-dot icon-start"></i>
+                        <input type="text" id="start-input" placeholder="Click map to set Start..." readonly />
+                        <button id="btn-clear-start" class="btn-icon" title="Clear start"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                    <div class="input-row">
+                        <i class="fa-solid fa-location-dot icon-end"></i>
+                        <input type="text" id="end-input" placeholder="Click map to set Destination..." readonly />
+                        <button id="btn-clear-end" class="btn-icon" title="Clear destination"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                </div>
+                <div class="action-buttons">
+                    <button id="btn-swap" class="btn-secondary"><i class="fa-solid fa-arrows-rotate"></i> Swap Points</button>
+                    <button id="btn-clear-all" class="btn-secondary"><i class="fa-solid fa-trash-can"></i> Clear Route</button>
+                </div>
+            </section>
+
+            <!-- Sliders Section -->
+            <section class="control-group">
+                <div class="slider-header">
+                    <label for="comfort-slider" class="group-label"><i class="fa-solid fa-sliders"></i> Comfort vs. Speed</label>
+                    <span id="comfort-val" class="slider-badge">Shortest Path</span>
+                </div>
+                <input type="range" id="comfort-slider" min="0" max="10" step="1" value="3" class="custom-slider" />
+                <div class="slider-labels">
+                    <span>Fastest (Distance)</span>
+                    <span>Coolest (Shade/Surface)</span>
+                </div>
+            </section>
+
+            <section class="control-group">
+                <div class="slider-header">
+                    <label for="time-slider" class="group-label"><i class="fa-solid fa-clock"></i> Solar Clock (Time of Day)</label>
+                    <span id="time-val" class="slider-badge">14:00</span>
+                </div>
+                <input type="range" id="time-slider" min="6" max="20" step="0.25" value="14" class="custom-slider" />
+                <div class="slider-labels">
+                    <span>06:00 (Sunrise)</span>
+                    <span>13:00 (Zenith)</span>
+                    <span>20:00 (Sunset)</span>
+                </div>
+                <div id="weather-display" class="weather-display">
+                    <span class="weather-temp-val"><i class="fa-solid fa-temperature-half"></i> <span id="temp-value">--</span>°C</span>
+                    <span id="temp-desc" class="weather-status-label">Loading weather...</span>
+                </div>
+            </section>
+
+            <!-- Routing Statistics Panel -->
+            <section id="stats-panel" class="info-card hidden">
+                <h3 class="card-title"><i class="fa-solid fa-chart-simple"></i> Route Statistics</h3>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <span class="stat-label">Distance</span>
+                        <span id="stat-distance" class="stat-val">--</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Walk Time</span>
+                        <span id="stat-duration" class="stat-val">--</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Shade Coverage</span>
+                        <span id="stat-shade-pct" class="stat-val">--</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Comfort Score</span>
+                        <span id="stat-comfort" class="stat-val">--</span>
+                    </div>
+                    <div class="stat-item full-width">
+                        <span class="stat-label">Ambient Temperature</span>
+                        <span id="stat-temp" class="stat-val">--</span>
+                    </div>
+                </div>
+
+                <div class="progress-bar-container">
+                    <div class="progress-bar-label">
+                        <span>Shaded Distance</span>
+                        <span id="stat-shade-dist">--</span>
+                    </div>
+                    <div class="progress-track">
+                        <div id="shade-progress-fill" class="progress-fill" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <div class="surface-distribution">
+                    <span class="dist-title">Pavement Composition:</span>
+                    <div id="surface-pills-container" class="surface-pills">
+                        <!-- Filled dynamically -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Thermal Parking spots Section -->
+            <section id="parking-panel" class="info-card hidden">
+                <h3 class="card-title"><i class="fa-solid fa-square-parking"></i> Thermal Parking Assistant</h3>
+                <p class="card-intro">Select a spot to park shaded, then navigate the last mile to destination.</p>
+                <div id="parking-list" class="parking-list">
+                    <!-- Filled dynamically -->
+                </div>
+            </section>
+        </aside>
+
+        <!-- Map Container -->
+        <main id="map-container">
+            <div id="map"></div>
+            
+            <!-- Map Legend Overlay -->
+            <div id="map-legend">
+                <h4>Legend</h4>
+                <div class="legend-item"><span class="legend-color shadow-color"></span><span>Dynamic Building Shadow</span></div>
+                <div class="legend-item"><span class="legend-color tree-color"></span><span>Tree Canopy / Park</span></div>
+                <div class="legend-item"><span class="legend-color route-shade"></span><span>Comfortable / Cool Path</span></div>
+                <div class="legend-item"><span class="legend-color route-sun"></span><span>Hot / Uncomfortable Path</span></div>
+                <div class="legend-item"><span class="legend-icon marker-start"><i class="fa-solid fa-circle-dot"></i></span><span>Start Node</span></div>
+                <div class="legend-item"><span class="legend-icon marker-end"><i class="fa-solid fa-location-dot"></i></span><span>Destination Node</span></div>
+            </div>
+
+            <!-- Toast Notification -->
+            <div id="toast" class="toast hidden"></div>
+        </main>
+    </div>
+
+    <!-- Custom App Code -->
+    <script src="/static/app.js"></script>
+</body>
+</html>
